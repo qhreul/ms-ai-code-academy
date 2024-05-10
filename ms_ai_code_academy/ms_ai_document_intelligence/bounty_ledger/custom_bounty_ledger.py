@@ -27,7 +27,7 @@ class BountyLedger:
         self.document_intelligence_client = DocumentIntelligenceClient(endpoint=os.getenv('AZURE_AI_SERVICE_ENDPOINT'),
                                                                        credential=AzureKeyCredential(os.getenv('AZURE_AI_SERVICE_KEY')))
         with open(file_path, 'rb') as f:
-            self.analyzer = self.document_intelligence_client.begin_analyze_document(model_id='custom_bouty_ledger',
+            self.analyzer = self.document_intelligence_client.begin_analyze_document(model_id='custom_bounty_ledger',
                                                                                      analyze_request=f,
                                                                                      content_type=content_type)
 
@@ -60,7 +60,7 @@ class BountyLedger:
 
 if __name__ == '__main__':
     # initialize the ledger object
-    ledger = BountyLedger(file_path='D:\codebase\ms-ai-code-academy\data\samples\custom_invoice.jpg',
+    ledger = BountyLedger(file_path='D:\codebase\ms-ai-code-academy\data\samples\purchase_order.jpg',
                           content_type='image/jpeg')
     # analyze the invoice
     invoice = ledger.process_invoices()
