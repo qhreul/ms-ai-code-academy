@@ -19,6 +19,7 @@ azure-core = "^1.30"
 fructose="0.0.13"
 python = "^3.11"
 python-dotenv = "^1"
+requests = "^2"
 
 [tool.poetry.group.test.dependencies]
 coverage = "*"
