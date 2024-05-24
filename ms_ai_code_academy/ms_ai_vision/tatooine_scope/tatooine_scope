@@ -1,0 +1,127 @@
+import os
+from dotenv import load_dotenv
+
+from azure.ai.vision.imageanalysis import ImageAnalysisClient
+from azure.ai.vision.imageanalysis.models import VisualFeatures
+from azure.core.credentials import AzureKeyCredential
+
+from PIL import Image, ImageDraw
+from matplotlib import pyplot as plt
+
+import requests
+
+from ms_ai_code_academy import settings
+
+# configure logging
+import logging
+from logging.config import dictConfig
+dictConfig(settings.LOG_CONFIG)
+logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+IMAGE_FOLDER = 'D:\codebase\ms-ai-code-academy\data\images'
+
+# If you don't already have one in your subscription, you'll need to provision an Azure AI Services resource (https://portal.azure.com)
+
+class TatooineScope:
+
+    def __init__(self):
+        self.vision_client = ImageAnalysisClient(
+            endpoint=os.getenv("AZURE_AI_SERVICE_ENDPOINT"),
+            credential=AzureKeyCredential(os.getenv("AZURE_AI_SERVICE_KEY"))
+        )
+
+    def draw_image(self, image_path: str):
+        """
+        :param image_path: the path to the image to be drawn
+        """
+        image = Image.open(image_path)
+        fig = plt.figure(figsize=(image.width/100, image.height/100))
+        plt.axis('off')
+        draw = ImageDraw.Draw(image)
+        #color = 'cyan'
+        
+    def analyze_image(self, image_path: str):
+        """
+        :param image_path: the path the image to be analyzed
+        """
+        try:
+            # draw image
+            self.draw_image(image_path)
+            
+            # read data from the impage
+            with open(image_path, "rb") as f:
+                image_data = f.read()
+            
+            # analyze the image
+            result = self.vision_client.analyze(image_data=image_data, 
+                                                visual_features=[
+                                                    VisualFeatures.CAPTION,
+                                                    VisualFeatures.DENSE_CAPTIONS,
+                                                    VisualFeatures.TAGS,
+                                                    VisualFeatures.OBJECTS,
+                                                    VisualFeatures.PEOPLE])
+            
+            
+            # print the output from the analysis
+            if result.caption is not None:
+                logger.info(f'Caption: {result.caption.text} (Confidence: {round(result.caption.confidence, 3)})')
+            
+            if result.dense_captions is not None:
+                for caption in result.dense_captions.list:
+                    logger.info(f'Caption: {caption.text} (Confidence: {round(caption.confidence, 3)})')
+                
+            if result.tags is not None:
+                for tag in result.tags.list:
+                    logger.info(f'Tag: {tag.name} (Confidence: {round(tag.confidence, 3)})')
+                    
+            if result.objects is not None:
+                for object in result.objects.list:
+                    logger.info(f'Object: {object.tags[0].name} (Confidence: {round(object.tags[0].confidence, 3)})')
+                    
+            if result.people is not None:
+                for person in result.people.list:
+                    logger.info(f'Person: {person.bounding_box} (Confidence: {round(person.confidence, 3)})')
+                    
+        except Exception as e:
+            logger.error(f'Issue encountered while processing {image_path} - {e}')
+            
+    def remove_background(self, image_path: str, api_version: str = '2023-02-01-preview', 
+                          mode: str = 'backgroundRemoval'):
+        """
+        :param image_path: the image for which background will be removed
+        :param api_version: the API version to use to remove the background
+        :param mode: the mode to use for removing the background
+            backgroundRemoval = Outputs an image of the detected foreground object with a transparent background.
+            foregroundMatting = Outputs a gray-scale alpha matte image showing the opacity of the detected foreground object.
+        """
+        logger.debug(f'Removing background from {image_path}...')
+        
+        # define tge request to be executed
+        url = f'{os.getenv("AZURE_AI_SERVICE_ENDPOINT")}computervision/imageanalysis:segment?api-version={api_version}&mode={mode}'
+        headers = {
+            "Ocp-Apim-Subscription-Key": os.getenv("AZURE_AI_SERVICE_KEY"),
+            "Content-Type": "application/json"
+        }
+        body = {
+            "url": image_path
+        }
+        
+        try:
+            # execute the request
+            response = requests.post(url, headers=headers, json=body)
+            image = response.content
+        
+            # write the data to a new file
+            with open(f'{IMAGE_FOLDER}\\no-background-windows-kitchen', 'wb') as f:
+                f.write(image)
+                
+        except Exception as e:
+            logger.error(f'Issue encountered while processing {image_path} - {e}')
+
+
+if __name__ == "__main__":
+    tatooine = TatooineScope()
+    #tatooine.analyze_image(f'{IMAGE_FOLDER}\street.jpg')
+    tatooine.remove_background('https://learn.microsoft.com/azure/ai-services/computer-vision/images/windows-kitchen.jpg')
